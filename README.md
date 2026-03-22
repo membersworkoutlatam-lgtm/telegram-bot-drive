@@ -1,0 +1,9 @@
+python-telegram-bot
+pillow
+torch
+torchvision
+ftfy
+regex
+tqdm
+gdown
+git+https://github.com/openai/CLIP.git
