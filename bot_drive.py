@@ -51,7 +51,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("🔍 Buscando imágenes similares...")
 
-        file = await update.message.photo[-1].get_file()
+        file = await update.message.reply_document(document=f)
         file_path = "query.jpg"
         await file.download_to_drive(file_path)
 
