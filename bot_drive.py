@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 
 # 🔐 TOKEN desde Railway (Variables)
-TOKEN = os.getenv("8239387987:AAEbCTSNK3OQDglN5zz3fIJZY1b-G4Koxh4")
+TOKEN = os.getenv("TOKEN")
 
 # 📁 Configuración
 DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
