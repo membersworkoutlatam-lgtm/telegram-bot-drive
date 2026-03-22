@@ -87,4 +87,4 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
 print("🤖 Bot DeepFace corriendo correctamente...")
-app.run_polling()run_polling()
+app.run_polling()
