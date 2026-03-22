@@ -1,7 +1,5 @@
 python-telegram-bot
 pillow
-gdown
-imagehash
 numpy
+gdown
 face_recognition
-dlib
