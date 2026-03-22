@@ -28,7 +28,7 @@ def load_images():
     for file in os.listdir(LOCAL_FOLDER):
         path = os.path.join(LOCAL_FOLDER, file)
         try:
-            img = Image.open(path)
+            img = Image.open(path).convert("RGB")
             h = imagehash.phash(img)
             image_db.append(path)
             image_hashes.append(h)
@@ -50,21 +50,31 @@ def find_similar(query_hash, top_k=5):
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("🔍 Buscando imágenes similares...")
-        print("📩 Imagen recibida")
+
         file = await update.message.photo[-1].get_file()
         file_path = "query.jpg"
         await file.download_to_drive(file_path)
-        query_img = Image.open(file_path)
+
+        query_img = Image.open(file_path).convert("RGB")
         query_hash = imagehash.phash(query_img)
+
         results = find_similar(query_hash)
+
         print("RESULTADOS:", results)
+
         if not results:
-            await update.message.reply_text("❌ No se encontraron imágenes similares")
+            await update.message.reply_text("❌ No se encontraron imágenes")
             return
+
         for img_path in results:
-            await update.message.reply_photo(photo=open(img_path, 'rb'))
+            try:
+                with open(img_path, 'rb') as f:
+                    await update.message.reply_photo(photo=f)
+            except Exception as e:
+                print("Error enviando imagen:", e)
+
     except Exception as e:
-        print("ERROR:", e)
+        print("ERROR GENERAL:", e)
         await update.message.reply_text("⚠️ Error procesando la imagen")
 # 🚀 Iniciar bot
 app = ApplicationBuilder().token(TOKEN).build()
