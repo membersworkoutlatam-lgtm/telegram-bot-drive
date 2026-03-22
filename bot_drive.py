@@ -1,20 +1,19 @@
 import os
 import gdown
 import numpy as np
-from PIL import Image
 import face_recognition
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
-# 🔐 TOKEN desde Railway
+# 🔐 TOKEN
 TOKEN = os.getenv("TOKEN")
 
 # 📁 CONFIG
 DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
 LOCAL_FOLDER = "FOTOS"
 
-# 📥 DESCARGAR IMÁGENES (máx 50)
+# 📥 DESCARGAR (máx 50 archivos)
 if not os.path.exists(LOCAL_FOLDER):
     os.makedirs(LOCAL_FOLDER)
     print("📥 Descargando imágenes...")
@@ -23,7 +22,7 @@ if not os.path.exists(LOCAL_FOLDER):
     except Exception as e:
         print("⚠️ Error descargando:", e)
 
-# 🧠 BASE DE DATOS DE ROSTROS
+# 🧠 BASE DE DATOS
 face_db = []
 face_encodings = []
 
@@ -37,26 +36,36 @@ def load_images():
             img = face_recognition.load_image_file(path)
             encodings = face_recognition.face_encodings(img)
 
-            if encodings:
+            if len(encodings) > 0:
                 face_db.append(path)
                 face_encodings.append(encodings[0])
+            else:
+                print(f"❌ Sin rostro: {file}")
 
         except Exception as e:
-            print("Error cargando:", e)
+            print("Error:", e)
+
+    print(f"✅ Rostros válidos cargados: {len(face_db)}")
 
 load_images()
-print(f"✅ {len(face_db)} rostros cargados")
 
-# 🔍 BUSCAR SIMILARES
-def find_similar_faces(query_encoding, top_k=5):
+# 🔍 BUSCAR ROSTROS SIMILARES
+def find_similar_faces(query_encoding, top_k=5, threshold=0.6):
     if not face_encodings:
         return []
 
     distances = face_recognition.face_distance(face_encodings, query_encoding)
-    indices = np.argsort(distances)[:top_k]
-    return [face_db[i] for i in indices]
 
-# 📩 HANDLER IMAGEN
+    matches = []
+    for i in range(len(distances)):
+        if distances[i] < threshold:
+            matches.append((face_db[i], distances[i]))
+
+    matches = sorted(matches, key=lambda x: x[1])
+
+    return [m[0] for m in matches[:top_k]]
+
+# 📩 HANDLER
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("🔍 Buscando rostro...")
@@ -68,17 +77,18 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         img = face_recognition.load_image_file(file_path)
         encodings = face_recognition.face_encodings(img)
 
-        if not encodings:
-            await update.message.reply_text("❌ No se detectó ningún rostro")
+        if len(encodings) == 0:
+            await update.message.reply_text("❌ No se detectó ningún rostro en la imagen")
             return
 
         query_encoding = encodings[0]
+
         results = find_similar_faces(query_encoding)
 
         print("RESULTADOS:", results)
 
         if not results:
-            await update.message.reply_text("❌ No se encontraron coincidencias")
+            await update.message.reply_text("❌ No se encontraron coincidencias reales")
             return
 
         for img_path in results:
