@@ -17,7 +17,7 @@ LOCAL_FOLDER = "FOTOS"
 if not os.path.exists(LOCAL_FOLDER):
     os.makedirs(LOCAL_FOLDER)
     print("📥 Descargando imágenes...")
-    gdown.download_folder(DRIVE_FOLDER_LINK, output=LOCAL_FOLDER, quiet=False, use_cookies=False)
+    gdown.download_folder(DRIVE_FOLDER_LINK, output=LOCAL_FOLDER, quiet=True, use_cookies=False)
 
 # 🧠 Cargar hashes
 image_db = []
