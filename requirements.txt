@@ -3,3 +3,5 @@ pillow
 gdown
 imagehash
 numpy
+face_recognition
+dlib
