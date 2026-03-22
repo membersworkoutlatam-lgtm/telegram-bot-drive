@@ -67,4 +67,4 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
 print("🤖 Bot liviano corriendo...")
-app.run_polling()run_polling()
+app.run_polling()
