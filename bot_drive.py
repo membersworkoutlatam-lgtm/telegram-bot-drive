@@ -66,7 +66,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ No se encontraron imágenes")
             return
 
-       for img_path in results:
+      for img_path in results:
     try:
         size = os.path.getsize(img_path)
 
