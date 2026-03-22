@@ -48,20 +48,24 @@ def find_similar(query_hash, top_k=5):
 
 # 📩 Handler Telegram
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔍 Buscando imágenes similares...")
-
-    file = await update.message.photo[-1].get_file()
-    file_path = "query.jpg"
-    await file.download_to_drive(file_path)
-
-    query_img = Image.open(file_path)
-    query_hash = imagehash.phash(query_img)
-
-    results = find_similar(query_hash)
-
-    for img_path in results:
-        await update.message.reply_photo(photo=open(img_path, 'rb'))
-
+    try:
+        await update.message.reply_text("🔍 Buscando imágenes similares...")
+        print("📩 Imagen recibida")
+        file = await update.message.photo[-1].get_file()
+        file_path = "query.jpg"
+        await file.download_to_drive(file_path)
+        query_img = Image.open(file_path)
+        query_hash = imagehash.phash(query_img)
+        results = find_similar(query_hash)
+        print("RESULTADOS:", results)
+        if not results:
+            await update.message.reply_text("❌ No se encontraron imágenes similares")
+            return
+        for img_path in results:
+            await update.message.reply_photo(photo=open(img_path, 'rb'))
+    except Exception as e:
+        print("ERROR:", e)
+        await update.message.reply_text("⚠️ Error procesando la imagen")
 # 🚀 Iniciar bot
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
