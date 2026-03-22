@@ -51,7 +51,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("🔍 Buscando imágenes similares...")
 
-        file = await update.message.reply_document(document=f)
+        file = await update.message.photo[-1].get_file()
         file_path = "query.jpg"
         await file.download_to_drive(file_path)
 
@@ -66,18 +66,24 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ No se encontraron imágenes")
             return
 
-      for img_path in results:
-    try:
-        size = os.path.getsize(img_path)
+        import os
 
-        with open(img_path, 'rb') as f:
-            if size > 10 * 1024 * 1024:
-                await update.message.reply_document(document=f)
-            else:
-                await update.message.reply_photo(photo=f)
+        for img_path in results:
+            try:
+                size = os.path.getsize(img_path)
+
+                with open(img_path, 'rb') as f:
+                    if size > 10 * 1024 * 1024:
+                        await update.message.reply_document(document=f)
+                    else:
+                        await update.message.reply_photo(photo=f)
+
+            except Exception as e:
+                print("Error enviando imagen:", e)
 
     except Exception as e:
-        print("Error enviando imagen:", e)
+        print("ERROR GENERAL:", e)
+        await update.message.reply_text("⚠️ Error procesando la imagen")
 
     except Exception as e:
         print("ERROR GENERAL:", e)
