@@ -6,9 +6,9 @@ import numpy as np
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 
-TOKEN = os.getenv("8239387987:AAEbCTSNK3OQDglN5zz3fIJZY1b-G4Koxh4")
-DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
-LOCAL_FOLDER = "FOTOS"
+TOKEN = os.getenv(8239387987:AAEbCTSNK3OQDglN5zz3fIJZY1b-G4Koxh4)
+DRIVE_FOLDER_LINK = https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6
+LOCAL_FOLDER = FOTOS
 
 # Descargar imágenes
 if not os.path.exists(LOCAL_FOLDER):
