@@ -1,72 +1,85 @@
 import os
 import gdown
-from PIL import Image
-import imagehash
 import numpy as np
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from PIL import Image
+import face_recognition
 
-# 🔐 TOKEN desde Railway (Variables)
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
+
+# 🔐 TOKEN desde Railway
 TOKEN = os.getenv("TOKEN")
 
-# 📁 Configuración
-DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1apWQVfJBAwlhNLgKv-zb8QKgKKVsMaHx?usp=drive_link"
+# 📁 CONFIG
+DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
 LOCAL_FOLDER = "FOTOS"
 
-# 📥 Descargar imágenes
+# 📥 DESCARGAR IMÁGENES (máx 50)
 if not os.path.exists(LOCAL_FOLDER):
     os.makedirs(LOCAL_FOLDER)
     print("📥 Descargando imágenes...")
-    gdown.download_folder(DRIVE_FOLDER_LINK, output=LOCAL_FOLDER, quiet=True, use_cookies=False)
+    try:
+        gdown.download_folder(DRIVE_FOLDER_LINK, output=LOCAL_FOLDER, quiet=True)
+    except Exception as e:
+        print("⚠️ Error descargando:", e)
 
-# 🧠 Cargar hashes
-image_db = []
-image_hashes = []
+# 🧠 BASE DE DATOS DE ROSTROS
+face_db = []
+face_encodings = []
 
 def load_images():
-    print("📸 Procesando imágenes...")
+    print("🧠 Procesando rostros...")
+
     for file in os.listdir(LOCAL_FOLDER):
         path = os.path.join(LOCAL_FOLDER, file)
+
         try:
-            img = Image.open(path).convert("RGB")
-            h = imagehash.phash(img)
-            image_db.append(path)
-            image_hashes.append(h)
-        except:
-            continue
+            img = face_recognition.load_image_file(path)
+            encodings = face_recognition.face_encodings(img)
+
+            if encodings:
+                face_db.append(path)
+                face_encodings.append(encodings[0])
+
+        except Exception as e:
+            print("Error cargando:", e)
 
 load_images()
-print(f"✅ {len(image_db)} imágenes cargadas")
+print(f"✅ {len(face_db)} rostros cargados")
 
-# 🔍 Buscar similares
-def find_similar(query_hash, top_k=5):
-    sims = []
-    for h in image_hashes:
-        sims.append(query_hash - h)
-    indices = np.argsort(sims)[:top_k]
-    return [image_db[i] for i in indices]
+# 🔍 BUSCAR SIMILARES
+def find_similar_faces(query_encoding, top_k=5):
+    if not face_encodings:
+        return []
 
-# 📩 Handler Telegram
+    distances = face_recognition.face_distance(face_encodings, query_encoding)
+    indices = np.argsort(distances)[:top_k]
+    return [face_db[i] for i in indices]
+
+# 📩 HANDLER IMAGEN
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        await update.message.reply_text("🔍 Buscando imágenes similares...")
+        await update.message.reply_text("🔍 Buscando rostro...")
 
         file = await update.message.photo[-1].get_file()
         file_path = "query.jpg"
         await file.download_to_drive(file_path)
 
-        query_img = Image.open(file_path).convert("RGB")
-        query_hash = imagehash.phash(query_img)
+        img = face_recognition.load_image_file(file_path)
+        encodings = face_recognition.face_encodings(img)
 
-        results = find_similar(query_hash)
+        if not encodings:
+            await update.message.reply_text("❌ No se detectó ningún rostro")
+            return
+
+        query_encoding = encodings[0]
+        results = find_similar_faces(query_encoding)
 
         print("RESULTADOS:", results)
 
         if not results:
-            await update.message.reply_text("❌ No se encontraron imágenes")
+            await update.message.reply_text("❌ No se encontraron coincidencias")
             return
-
-        import os
 
         for img_path in results:
             try:
@@ -79,18 +92,21 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await update.message.reply_photo(photo=f)
 
             except Exception as e:
-                print("Error enviando imagen:", e)
+                print("Error enviando:", e)
 
     except Exception as e:
         print("ERROR GENERAL:", e)
-        await update.message.reply_text("⚠️ Error procesando la imagen")
+        await update.message.reply_text("⚠️ Error procesando imagen")
 
-    except Exception as e:
-        print("ERROR GENERAL:", e)
-        await update.message.reply_text("⚠️ Error procesando la imagen")
-# 🚀 Iniciar bot
+# 🧪 TEST
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Bot con reconocimiento facial activo")
+
+# 🚀 BOT
 app = ApplicationBuilder().token(TOKEN).build()
+
+app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
-print("🤖 Bot liviano corriendo...")
+print("🤖 Bot con IA facial corriendo...")
 app.run_polling()
