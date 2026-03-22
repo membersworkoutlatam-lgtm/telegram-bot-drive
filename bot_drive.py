@@ -1,7 +1,9 @@
 import os
 import gdown
+import torch
 import numpy as np
-import face_recognition
+from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
@@ -13,83 +15,79 @@ TOKEN = os.getenv("TOKEN")
 DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
 LOCAL_FOLDER = "FOTOS"
 
-# 📥 DESCARGAR (máx 50 archivos)
+# 📥 DESCARGA
 if not os.path.exists(LOCAL_FOLDER):
     os.makedirs(LOCAL_FOLDER)
     print("📥 Descargando imágenes...")
     try:
         gdown.download_folder(DRIVE_FOLDER_LINK, output=LOCAL_FOLDER, quiet=True)
     except Exception as e:
-        print("⚠️ Error descargando:", e)
+        print("Error descarga:", e)
 
-# 🧠 BASE DE DATOS
-face_db = []
-face_encodings = []
+# 🧠 MODELO CLIP
+print("🧠 Cargando modelo IA...")
+model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+# 📊 BASE DE DATOS
+image_db = []
+image_embeddings = []
 
 def load_images():
-    print("🧠 Procesando rostros...")
+    print("📸 Generando embeddings...")
 
     for file in os.listdir(LOCAL_FOLDER):
         path = os.path.join(LOCAL_FOLDER, file)
 
         try:
-            img = face_recognition.load_image_file(path)
-            encodings = face_recognition.face_encodings(img)
+            image = Image.open(path).convert("RGB")
+            inputs = processor(images=image, return_tensors="pt")
 
-            if len(encodings) > 0:
-                face_db.append(path)
-                face_encodings.append(encodings[0])
-            else:
-                print(f"❌ Sin rostro: {file}")
+            with torch.no_grad():
+                embedding = model.get_image_features(**inputs)
+
+            embedding = embedding / embedding.norm(p=2)
+            image_db.append(path)
+            image_embeddings.append(embedding.numpy()[0])
 
         except Exception as e:
             print("Error:", e)
 
-    print(f"✅ Rostros válidos cargados: {len(face_db)}")
+    print(f"✅ {len(image_db)} imágenes procesadas")
 
 load_images()
 
-# 🔍 BUSCAR ROSTROS SIMILARES
-def find_similar_faces(query_encoding, top_k=5, threshold=0.6):
-    if not face_encodings:
-        return []
+# 🔍 SIMILITUD
+def find_similar(query_embedding, top_k=5):
+    sims = []
 
-    distances = face_recognition.face_distance(face_encodings, query_encoding)
+    for emb in image_embeddings:
+        sim = np.dot(query_embedding, emb)
+        sims.append(sim)
 
-    matches = []
-    for i in range(len(distances)):
-        if distances[i] < threshold:
-            matches.append((face_db[i], distances[i]))
+    indices = np.argsort(sims)[::-1][:top_k]
 
-    matches = sorted(matches, key=lambda x: x[1])
-
-    return [m[0] for m in matches[:top_k]]
+    return [image_db[i] for i in indices]
 
 # 📩 HANDLER
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        await update.message.reply_text("🔍 Buscando rostro...")
+        await update.message.reply_text("🧠 Analizando imagen con IA...")
 
         file = await update.message.photo[-1].get_file()
         file_path = "query.jpg"
         await file.download_to_drive(file_path)
 
-        img = face_recognition.load_image_file(file_path)
-        encodings = face_recognition.face_encodings(img)
+        image = Image.open(file_path).convert("RGB")
+        inputs = processor(images=image, return_tensors="pt")
 
-        if len(encodings) == 0:
-            await update.message.reply_text("❌ No se detectó ningún rostro en la imagen")
-            return
+        with torch.no_grad():
+            embedding = model.get_image_features(**inputs)
 
-        query_encoding = encodings[0]
+        embedding = embedding / embedding.norm(p=2)
+        query_embedding = embedding.numpy()[0]
 
-        results = find_similar_faces(query_encoding)
-
-        print("RESULTADOS:", results)
-
-        if not results:
-            await update.message.reply_text("❌ No se encontraron coincidencias reales")
-            return
+        results = find_similar(query_embedding)
 
         for img_path in results:
             try:
@@ -105,12 +103,12 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 print("Error enviando:", e)
 
     except Exception as e:
-        print("ERROR GENERAL:", e)
+        print("ERROR:", e)
         await update.message.reply_text("⚠️ Error procesando imagen")
 
 # 🧪 TEST
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot con reconocimiento facial activo")
+    await update.message.reply_text("🚀 Bot con IA avanzada activo")
 
 # 🚀 BOT
 app = ApplicationBuilder().token(TOKEN).build()
@@ -118,5 +116,5 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
-print("🤖 Bot con IA facial corriendo...")
+print("🤖 Bot IA PRO corriendo...")
 app.run_polling()
