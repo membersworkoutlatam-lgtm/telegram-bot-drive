@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 # =========================
 # 🔐 CONFIGURACIÓN
 # =========================
-TOKEN = "8239387987:AAEbCTSNK3OQDglN5zz3fIJZY1b-G4Koxh4"
+TOKEN = os.getenv("8239387987:AAEbCTSNK3OQDglN5zz3fIJZY1b-G4Koxh4")
 DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
 LOCAL_FOLDER = "imagenes_drive"
 
