@@ -1,6 +1,6 @@
-python-telegram-bot
-pillow
+python-telegram-bot==20.7
 numpy
 gdown
-deepface
+onnxruntime
+insightface
 opencv-python-headless
