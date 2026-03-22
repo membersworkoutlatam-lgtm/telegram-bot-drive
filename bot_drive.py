@@ -8,7 +8,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
 # ==============================
-# 🔐 TOKEN (Railway Variable)
+# 🔐 TOKEN
 # ==============================
 TOKEN = os.getenv("TOKEN")
 
@@ -16,37 +16,50 @@ if not TOKEN:
     raise ValueError("❌ TOKEN no configurado en Railway")
 
 # ==============================
-# 📁 CONFIGURACIÓN
+# 📁 CONFIG
 # ==============================
 DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
 LOCAL_FOLDER = "FOTOS"
 
 # ==============================
-# 📥 DESCARGAR IMÁGENES (1 VEZ)
+# 📥 DESCARGA IMÁGENES (1 VEZ)
 # ==============================
 if not os.path.exists(LOCAL_FOLDER):
     os.makedirs(LOCAL_FOLDER)
-    print("📥 Descargando imágenes desde Drive...")
+    print("📥 Descargando imágenes...")
     try:
         gdown.download_folder(DRIVE_FOLDER_LINK, output=LOCAL_FOLDER, quiet=True)
     except Exception as e:
         print("⚠️ Error descargando:", e)
 
 # ==============================
-# 🧠 MODELO IA
+# 🧠 IA (LAZY LOADING)
 # ==============================
-print("🧠 Cargando modelo facial...")
-face_app = FaceAnalysis(name="buffalo_l")
-face_app.prepare(ctx_id=0)
+face_app = None
+
+def get_face_app():
+    global face_app
+    if face_app is None:
+        print("🧠 Cargando modelo facial (primera vez)...")
+        face_app = FaceAnalysis(name="buffalo_l")
+        face_app.prepare(ctx_id=0)
+    return face_app
 
 # ==============================
-# 📊 BASE DE DATOS DE ROSTROS
+# 📊 BASE DE DATOS
 # ==============================
 face_db = []
 face_embeddings = []
+faces_loaded = False
 
 def load_faces():
+    global faces_loaded
+
+    if faces_loaded:
+        return
+
     print("📸 Procesando imágenes...")
+    app_face = get_face_app()
 
     for file in os.listdir(LOCAL_FOLDER):
         path = os.path.join(LOCAL_FOLDER, file)
@@ -56,7 +69,7 @@ def load_faces():
             if img is None:
                 continue
 
-            faces = face_app.get(img)
+            faces = app_face.get(img)
 
             if faces:
                 emb = faces[0].embedding
@@ -67,11 +80,10 @@ def load_faces():
             print("Error procesando:", e)
 
     print(f"✅ {len(face_db)} rostros cargados")
-
-load_faces()
+    faces_loaded = True
 
 # ==============================
-# 🔍 BUSCAR SIMILARES
+# 🔍 SIMILITUD
 # ==============================
 def find_similar(query_emb, threshold=0.6, top_k=5):
     results = []
@@ -82,19 +94,18 @@ def find_similar(query_emb, threshold=0.6, top_k=5):
         if sim > threshold:
             results.append((face_db[i], sim))
 
-    # ordenar por similitud
     results = sorted(results, key=lambda x: x[1], reverse=True)
 
     return [r[0] for r in results[:top_k]]
 
 # ==============================
-# 📩 HANDLER TELEGRAM
+# 📩 HANDLER
 # ==============================
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("🧠 Analizando rostro...")
 
-        # descargar imagen
+        # 📥 descargar imagen
         file = await update.message.photo[-1].get_file()
         query_path = "query.jpg"
         await file.download_to_drive(query_path)
@@ -104,15 +115,18 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Error leyendo la imagen")
             return
 
-        faces = face_app.get(img)
+        app_face = get_face_app()
+        faces = app_face.get(img)
 
         # ❌ sin rostro
         if not faces:
             await update.message.reply_text("❌ No se detectó rostro")
             return
 
-        query_emb = faces[0].embedding
+        # 📊 cargar base (solo 1 vez)
+        load_faces()
 
+        query_emb = faces[0].embedding
         results = find_similar(query_emb)
 
         # ❌ cara distinta
@@ -145,7 +159,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🤖 Bot de reconocimiento facial activo")
 
 # ==============================
-# 🚀 INICIAR BOT
+# 🚀 INICIO
 # ==============================
 app = ApplicationBuilder().token(TOKEN).build()
 
