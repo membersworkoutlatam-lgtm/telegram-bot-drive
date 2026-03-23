@@ -14,16 +14,16 @@ from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, fil
 TOKEN = os.getenv("TOKEN")
 
 if not TOKEN:
-    raise ValueError("❌ TOKEN no configurado en Railway")
+    raise ValueError("❌ TOKEN no configurado")
 
 # ==============================
 # 📁 CONFIG
 # ==============================
-DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1apWQVfJBAwlhNLgKv-zb8QKgKKVsMaHx?hl=en"
+DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
 LOCAL_FOLDER = "FOTOS"
 
 # ==============================
-# 📥 DESCARGA IMÁGENES (1 VEZ)
+# 📥 DESCARGA
 # ==============================
 if not os.path.exists(LOCAL_FOLDER):
     os.makedirs(LOCAL_FOLDER)
@@ -34,33 +34,20 @@ if not os.path.exists(LOCAL_FOLDER):
         print("⚠️ Error descargando:", e)
 
 # ==============================
-# 🧠 IA (LAZY LOADING)
+# 🧠 MODELO
 # ==============================
-face_app = None
-
-def get_face_app():
-    global face_app
-    if face_app is None:
-        print("🧠 Cargando modelo facial (primera vez)...")
-        face_app = FaceAnalysis(name="buffalo_l")
-        face_app.prepare(ctx_id=0)
-    return face_app
+print("🧠 Cargando modelo facial...")
+face_app = FaceAnalysis(name="buffalo_l")
+face_app.prepare(ctx_id=0)
 
 # ==============================
 # 📊 BASE DE DATOS
 # ==============================
 face_db = []
 face_embeddings = []
-faces_loaded = False
 
 def load_faces():
-    global faces_loaded
-
-    if faces_loaded:
-        return
-
-    print("📸 Procesando imágenes...")
-    app_face = get_face_app()
+    print("📸 Procesando base de rostros...")
 
     for file in os.listdir(LOCAL_FOLDER):
         path = os.path.join(LOCAL_FOLDER, file)
@@ -70,7 +57,7 @@ def load_faces():
             if img is None:
                 continue
 
-            faces = app_face.get(img)
+            faces = face_app.get(img)
 
             if faces:
                 emb = faces[0].embedding
@@ -78,15 +65,17 @@ def load_faces():
                 face_embeddings.append(emb)
 
         except Exception as e:
-            print("Error procesando:", e)
+            print("Error:", e)
 
     print(f"✅ {len(face_db)} rostros cargados")
-    faces_loaded = True
+
+# 🔥 CARGAR AL INICIO (CLAVE)
+load_faces()
 
 # ==============================
 # 🔍 SIMILITUD
 # ==============================
-def find_similar(query_emb, threshold=0.6, top_k=5):
+def find_similar(query_emb, threshold=0.6, top_k=3):
     results = []
 
     for i, emb in enumerate(face_embeddings):
@@ -96,7 +85,6 @@ def find_similar(query_emb, threshold=0.6, top_k=5):
             results.append((face_db[i], sim))
 
     results = sorted(results, key=lambda x: x[1], reverse=True)
-
     return [r[0] for r in results[:top_k]]
 
 # ==============================
@@ -112,47 +100,42 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         img = cv2.imread(query_path)
         if img is None:
-            await update.message.reply_text("⚠️ Error leyendo la imagen")
+            await update.message.reply_text("⚠️ Error leyendo imagen")
             return
 
-        app_face = get_face_app()
-        faces = app_face.get(img)
+        faces = face_app.get(img)
 
         if not faces:
             await update.message.reply_text("❌ No se detectó rostro")
             return
 
-        load_faces()
+        await update.message.reply_text("🔍 Buscando coincidencias...")
 
         query_emb = faces[0].embedding
         results = find_similar(query_emb)
 
-        if len(results) == 0:
+        if not results:
             await update.message.reply_text("❌ Cara no encontrada")
             return
 
+        await update.message.reply_text(f"✅ Encontré {len(results)} coincidencias")
+
         for img_path in results:
             try:
-                size = os.path.getsize(img_path)
-
                 with open(img_path, "rb") as f:
-                    if size > 10 * 1024 * 1024:
-                        await update.message.reply_document(document=f)
-                    else:
-                        await update.message.reply_photo(photo=f)
-
+                    await update.message.reply_photo(photo=f)
             except Exception as e:
                 print("Error enviando:", e)
 
     except Exception as e:
-        print("ERROR GENERAL:", e)
+        print("ERROR:", e)
         await update.message.reply_text("⚠️ Error procesando imagen")
 
 # ==============================
 # 🚀 START
 # ==============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 Bot de reconocimiento facial activo")
+    await update.message.reply_text("🤖 Bot listo. Envíame una foto")
 
 # ==============================
 # 🚀 APP
@@ -163,17 +146,14 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
 # ==============================
-# 🚀 MAIN (FIX CLAVE)
+# 🚀 RUN (SIN asyncio.run)
 # ==============================
-async def main():
-  print("🚀 PID:", os.getpid())
-print("🤖 Bot corriendo correctamente...")
+print("🚀 PID:", os.getpid())
+print("🤖 Bot corriendo...")
 
-# 🔒 limpiar webhook (IMPORTANTE)
-import asyncio
+# limpiar webhook
 asyncio.get_event_loop().run_until_complete(
     app.bot.delete_webhook(drop_pending_updates=True)
 )
 
-# 🚀 iniciar bot (SIN asyncio.run)
 app.run_polling(drop_pending_updates=True)
