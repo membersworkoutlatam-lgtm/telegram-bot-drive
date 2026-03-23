@@ -2,6 +2,7 @@ import os
 import gdown
 import numpy as np
 import cv2
+import asyncio
 
 from insightface.app import FaceAnalysis
 from telegram import Update
@@ -105,7 +106,6 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("🧠 Analizando rostro...")
 
-        # 📥 descargar imagen
         file = await update.message.photo[-1].get_file()
         query_path = "query.jpg"
         await file.download_to_drive(query_path)
@@ -118,23 +118,19 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         app_face = get_face_app()
         faces = app_face.get(img)
 
-        # ❌ sin rostro
         if not faces:
             await update.message.reply_text("❌ No se detectó rostro")
             return
 
-        # 📊 cargar base (solo 1 vez)
         load_faces()
 
         query_emb = faces[0].embedding
         results = find_similar(query_emb)
 
-        # ❌ cara distinta
         if len(results) == 0:
             await update.message.reply_text("❌ Cara no encontrada")
             return
 
-        # ✅ enviar resultados
         for img_path in results:
             try:
                 size = os.path.getsize(img_path)
@@ -159,12 +155,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🤖 Bot de reconocimiento facial activo")
 
 # ==============================
-# 🚀 INICIO
+# 🚀 APP
 # ==============================
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
-print("🤖 Bot corriendo correctamente...")
-app.run_polling(drop_pending_updates=True)
+# ==============================
+# 🚀 MAIN (FIX CLAVE)
+# ==============================
+async def main():
+    print("🚀 PID:", os.getpid())
+    print("🤖 Bot corriendo correctamente...")
+
+    # 🔒 evita conflictos en Railway
+    await app.bot.delete_webhook(drop_pending_updates=True)
+
+    await app.run_polling(drop_pending_updates=True)
+
+# ==============================
+# 🔥 ENTRY POINT
+# ==============================
+if __name__ == "__main__":
+    asyncio.run(main())
