@@ -166,16 +166,14 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 # 🚀 MAIN (FIX CLAVE)
 # ==============================
 async def main():
-    print("🚀 PID:", os.getpid())
-    print("🤖 Bot corriendo correctamente...")
+  print("🚀 PID:", os.getpid())
+print("🤖 Bot corriendo correctamente...")
 
-    # 🔒 evita conflictos en Railway
-    await app.bot.delete_webhook(drop_pending_updates=True)
+# 🔒 limpiar webhook (IMPORTANTE)
+import asyncio
+asyncio.get_event_loop().run_until_complete(
+    app.bot.delete_webhook(drop_pending_updates=True)
+)
 
-    await app.run_polling(drop_pending_updates=True)
-
-# ==============================
-# 🔥 ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    asyncio.run(main())
+# 🚀 iniciar bot (SIN asyncio.run)
+app.run_polling(drop_pending_updates=True)
