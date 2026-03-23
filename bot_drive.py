@@ -19,7 +19,7 @@ if not TOKEN:
 # ==============================
 # 📁 CONFIG
 # ==============================
-DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1eZw2CdmJLLn_zYh_ImNUQAOyjt1bdnv6"
+DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1apWQVfJBAwlhNLgKv-zb8QKgKKVsMaHx?hl=en"
 LOCAL_FOLDER = "FOTOS"
 
 # ==============================
