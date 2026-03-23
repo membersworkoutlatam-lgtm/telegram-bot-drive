@@ -34,11 +34,11 @@ if not os.path.exists(LOCAL_FOLDER):
         print("⚠️ Error descargando:", e)
 
 # ==============================
-# 🧠 MODELO
+# 🧠 MODELO (CPU FORZADO)
 # ==============================
 print("🧠 Cargando modelo facial...")
 face_app = FaceAnalysis(name="buffalo_l")
-face_app.prepare(ctx_id=0)
+face_app.prepare(ctx_id=-1)  # 👈 evita warning CUDA
 
 # ==============================
 # 📊 BASE DE DATOS
@@ -69,7 +69,7 @@ def load_faces():
 
     print(f"✅ {len(face_db)} rostros cargados")
 
-# 🔥 CARGAR AL INICIO (CLAVE)
+# 🔥 cargar una sola vez al inicio
 load_faces()
 
 # ==============================
@@ -88,7 +88,7 @@ def find_similar(query_emb, threshold=0.6, top_k=3):
     return [r[0] for r in results[:top_k]]
 
 # ==============================
-# 📩 HANDLER
+# 📩 HANDLER (NO BLOQUEANTE)
 # ==============================
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -103,7 +103,10 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Error leyendo imagen")
             return
 
-        faces = face_app.get(img)
+        loop = asyncio.get_running_loop()
+
+        # 🔥 NO BLOQUEA
+        faces = await loop.run_in_executor(None, lambda: face_app.get(img))
 
         if not faces:
             await update.message.reply_text("❌ No se detectó rostro")
@@ -112,7 +115,9 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🔍 Buscando coincidencias...")
 
         query_emb = faces[0].embedding
-        results = find_similar(query_emb)
+
+        # 🔥 NO BLOQUEA
+        results = await loop.run_in_executor(None, lambda: find_similar(query_emb))
 
         if not results:
             await update.message.reply_text("❌ Cara no encontrada")
@@ -146,7 +151,7 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
 # ==============================
-# 🚀 RUN (SIN asyncio.run)
+# 🚀 RUN
 # ==============================
 print("🚀 PID:", os.getpid())
 print("🤖 Bot corriendo...")
